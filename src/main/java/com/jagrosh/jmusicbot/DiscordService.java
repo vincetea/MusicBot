@@ -3,6 +3,7 @@ package com.jagrosh.jmusicbot;
 import com.jagrosh.jdautilities.command.CommandClient;
 import com.jagrosh.jdautilities.commons.waiter.EventWaiter;
 import com.jagrosh.jmusicbot.entities.Prompt;
+import com.jagrosh.jmusicbot.entities.UserInteraction;
 import com.jagrosh.jmusicbot.utils.OtherUtil;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
@@ -17,13 +18,21 @@ import java.util.Arrays;
 public class DiscordService {
     private static final Logger LOG = LoggerFactory.getLogger(DiscordService.class);
 
-    public static JDA createJDA(BotConfig config, Bot bot, EventWaiter waiter, CommandClient client, Prompt prompt) throws Exception {
+    public static JDA createJDA(BotConfig config, Bot bot, EventWaiter waiter, CommandClient client, UserInteraction userInteraction) throws Exception {
         JDA jda = JDABuilder.create(config.getToken(), Arrays.asList(JMusicBot.INTENTS))
                 .enableCache(CacheFlag.MEMBER_OVERRIDES, CacheFlag.VOICE_STATE)
-                .disableCache(CacheFlag.ACTIVITY, CacheFlag.CLIENT_STATUS, CacheFlag.EMOJI, CacheFlag.ONLINE_STATUS)
+                .disableCache(
+                        CacheFlag.ACTIVITY,
+                        CacheFlag.CLIENT_STATUS,
+                        CacheFlag.EMOJI,
+                        CacheFlag.ONLINE_STATUS,
+                        CacheFlag.STICKER,
+                        CacheFlag.SCHEDULED_EVENTS
+                )
                 .setActivity(config.isGameNone() ? null : Activity.playing("loading..."))
                 .setStatus(config.getStatus() == OnlineStatus.INVISIBLE || config.getStatus() == OnlineStatus.OFFLINE
-                        ? OnlineStatus.INVISIBLE : OnlineStatus.DO_NOT_DISTURB)
+                        ? OnlineStatus.INVISIBLE
+                        : OnlineStatus.DO_NOT_DISTURB)
                 .addEventListeners(client, waiter, new Listener(bot))
                 .setBulkDeleteSplittingEnabled(true)
                 .build();
@@ -31,7 +40,7 @@ public class DiscordService {
         // Perform post-startup validation
         String unsupportedReason = OtherUtil.getUnsupportedBotReason(jda);
         if (unsupportedReason != null) {
-            prompt.alert(Prompt.Level.ERROR, "JMusicBot", "JMusicBot cannot be run on this Discord bot: " + unsupportedReason);
+            userInteraction.alert(Prompt.Level.ERROR, "JMusicBot", "JMusicBot cannot be run on this Discord bot: " + unsupportedReason);
             jda.shutdown();
             System.exit(1);
         }

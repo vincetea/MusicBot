@@ -17,18 +17,18 @@ package com.jagrosh.jmusicbot.utils;
 
 import com.jagrosh.jmusicbot.JMusicBot;
 import com.jagrosh.jmusicbot.entities.Prompt;
+import com.jagrosh.jmusicbot.entities.UserInteraction;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.OnlineStatus;
 import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.entities.ApplicationInfo;
 import net.dv8tion.jda.api.entities.User;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
-import org.json.JSONException;
-import org.json.JSONObject;
-import org.json.JSONTokener;
 
 import java.io.*;
 import java.net.URISyntaxException;
@@ -75,13 +75,13 @@ public class OtherUtil
     /**
      * Loads a resource from the jar as a string
      * 
-     * @param clazz class base object
+     * @param clazz class to use for loading the resource
      * @param name name of resource
      * @return string containing the contents of the resource
      */
-    public static String loadResource(Object clazz, String name)
+    public static String loadResource(Class<?> clazz, String name)
     {
-        try(BufferedReader reader = new BufferedReader(new InputStreamReader(clazz.getClass().getResourceAsStream(name))))
+        try(BufferedReader reader = new BufferedReader(new InputStreamReader(clazz.getResourceAsStream(name))))
         {
             StringBuilder sb = new StringBuilder();
             reader.lines().forEach(line -> sb.append("\r\n").append(line));
@@ -157,10 +157,10 @@ public class OtherUtil
         return st == null ? OnlineStatus.ONLINE : st;
     }
     
-    public static void checkJavaVersion(Prompt prompt)
+    public static void checkJavaVersion(UserInteraction userInteraction)
     {
         if(!System.getProperty("java.vm.name").contains("64"))
-            prompt.alert(Prompt.Level.WARNING, "Java Version", 
+            userInteraction.alert(Prompt.Level.WARNING, "Java Version", 
                     "It appears that you may not be using a supported Java version. Please use 64-bit java.");
     }
     
@@ -184,27 +184,30 @@ public class OtherUtil
             {
                 try(Reader reader = body.charStream())
                 {
-                    JSONObject obj = new JSONObject(new JSONTokener(reader));
-                    String tag = obj.getString("tag_name");
-                    if(tag.startsWith("v"))
-                        tag = tag.substring(1);
-                    return tag;
+                    ObjectMapper objectMapper = new ObjectMapper();
+                    JsonNode obj = objectMapper.readTree(reader);
+                    if(obj != null && obj.has("tag_name"))
+                    {
+                        String tag = obj.get("tag_name").asText();
+                        if(tag.startsWith("v"))
+                            tag = tag.substring(1);
+                        return tag;
+                    }
                 }
                 finally
                 {
                     response.close();
                 }
             }
-            else
-                return null;
+            return null;
         }
-        catch(IOException | JSONException | NullPointerException ex)
+        catch(IOException | NullPointerException ex)
         {
             return null;
         }
     }
 
-    public static void checkVersion(Prompt prompt)
+    public static void checkVersion(UserInteraction userInteraction)
     {
         // Get current version number
         String version = getCurrentVersion();
@@ -214,7 +217,7 @@ public class OtherUtil
 
         if(latestVersion != null && isNewerVersion(version, latestVersion))
         {
-            prompt.alert(Prompt.Level.WARNING, "JMusicBot Version", String.format(NEW_VERSION_AVAILABLE, version, latestVersion));
+            userInteraction.alert(Prompt.Level.WARNING, "JMusicBot Version", String.format(NEW_VERSION_AVAILABLE, version, latestVersion));
         }
     }
 

@@ -16,17 +16,6 @@
 package com.jagrosh.jmusicbot;
 
 import ch.qos.logback.classic.Level;
-import com.jagrosh.jdautilities.command.CommandClient;
-import com.jagrosh.jdautilities.commons.waiter.EventWaiter;
-import com.jagrosh.jmusicbot.commands.CommandFactory;
-import com.jagrosh.jmusicbot.commands.admin.*;
-import com.jagrosh.jmusicbot.commands.dj.*;
-import com.jagrosh.jmusicbot.commands.music.*;
-import com.jagrosh.jmusicbot.commands.owner.*;
-import com.jagrosh.jmusicbot.entities.Prompt;
-import com.jagrosh.jmusicbot.gui.GUI;
-import com.jagrosh.jmusicbot.settings.SettingsManager;
-import com.jagrosh.jmusicbot.utils.OtherUtil;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.Permission;
 import net.dv8tion.jda.api.exceptions.ErrorResponseException;
@@ -34,7 +23,16 @@ import net.dv8tion.jda.api.requests.GatewayIntent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.awt.*;
+import com.jagrosh.jdautilities.command.CommandClient;
+import com.jagrosh.jdautilities.commons.waiter.EventWaiter;
+import com.jagrosh.jmusicbot.commands.CommandFactory;
+import com.jagrosh.jmusicbot.entities.Prompt;
+import com.jagrosh.jmusicbot.entities.UserInteraction;
+import com.jagrosh.jmusicbot.gui.GUI;
+import com.jagrosh.jmusicbot.settings.SettingsManager;
+import com.jagrosh.jmusicbot.utils.ConsoleUtil;
+import com.jagrosh.jmusicbot.utils.InstanceLock;
+import com.jagrosh.jmusicbot.utils.OtherUtil;
 
 /**
  *
@@ -80,15 +78,38 @@ public class JMusicBot
     
     private static void startBot()
     {
-        // create prompt to handle startup
-        Prompt prompt = new Prompt("JMusicBot");
+        // create user interaction handler for startup
+        UserInteraction userInteraction = new Prompt("JMusicBot");
+        
+        // Redirect System.out/err to GUI console early (before config loading)
+        // so that all logs, including those from config loading, appear in GUI
+        if(!userInteraction.isNoGUI())
+        {
+            try 
+            {
+                ConsoleUtil.redirectSystemStreams();
+            }
+            catch(Exception e)
+            {
+                LOG.warn("Could not redirect console streams to GUI. Logs may not appear in GUI console.");
+            }
+        }
+        
+        // Check for another running instance
+        if (!InstanceLock.tryAcquire()) {
+            userInteraction.alert(Prompt.Level.ERROR, "JMusicBot",
+                    "Another instance of JMusicBot is already running.\n" +
+                    "Running multiple instances with the same configuration causes duplicate responses to commands.\n" +
+                    "Please close the other instance first.");
+            System.exit(1);
+        }
         
         // startup checks
-        OtherUtil.checkVersion(prompt);
-        OtherUtil.checkJavaVersion(prompt);
+        OtherUtil.checkVersion(userInteraction);
+        OtherUtil.checkJavaVersion(userInteraction);
         
         // load config
-        BotConfig config = new BotConfig(prompt);
+        BotConfig config = new BotConfig(userInteraction);
         config.load();
         if(!config.isValid())
             return;
@@ -102,9 +123,9 @@ public class JMusicBot
         EventWaiter waiter = new EventWaiter();
         SettingsManager settings = new SettingsManager();
         Bot bot = new Bot(waiter, config, settings);
-        CommandClient client = CommandFactory.createCommandClient(config, settings, bot);
         
-        if(!prompt.isNoGUI())
+        // Initialize GUI (ConsolePanel will reuse the already-redirected streams)
+        if(!userInteraction.isNoGUI())
         {
             try 
             {
@@ -117,6 +138,8 @@ public class JMusicBot
                 LOG.error("Could not start GUI. Use -Dnogui=true for server environments.");
             }
         }
+        
+        CommandClient client = CommandFactory.createCommandClient(config, settings, bot);
 
         // Now that GUI/Logging is ready, initialize the player manager
         bot.getPlayerManager().init();
@@ -124,18 +147,18 @@ public class JMusicBot
         // attempt to log in and start
         try
         {
-            JDA jda = DiscordService.createJDA(config, bot, waiter, client, prompt);
+            JDA jda = DiscordService.createJDA(config, bot, waiter, client, userInteraction);
             bot.setJDA(jda);
         }
         catch(IllegalArgumentException ex)
         {
-            prompt.alert(Prompt.Level.ERROR, "JMusicBot",
+            userInteraction.alert(Prompt.Level.ERROR, "JMusicBot",
                     "Invalid configuration. Check your token.\nConfig Location: " + config.getConfigLocation());
             System.exit(1);
         }
         catch(ErrorResponseException ex)
         {
-            prompt.alert(Prompt.Level.ERROR, "JMusicBot", "Invalid response from Discord. Check your internet connection.");
+            userInteraction.alert(Prompt.Level.ERROR, "JMusicBot", "Invalid response from Discord. Check your internet connection.");
             System.exit(1);
         }
         catch(Exception ex)
