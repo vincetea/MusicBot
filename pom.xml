@@ -3,6 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.arifbanai</groupId>
     <artifactId>JMusicBot</artifactId>
+    <version>0.6.2-yt-source-fix</version>
     <packaging>jar</packaging>
 
     <name>JMusicBot</name>
@@ -77,6 +78,15 @@
             <id>arbjergDev</id>
             <name>Lavalink Repository</name>
             <url>https://maven.lavalink.dev/releases</url>
+        </repository>
+        <repository>
+            <id>arbjergDevSnapshots</id>
+            <name>Lavalink Repository Snapshots</name>
+            <url>https://maven.lavalink.dev/snapshots</url>
+            <snapshots>
+                <enabled>true</enabled>
+                <updatePolicy>always</updatePolicy>
+            </snapshots>
         </repository>
         <repository>
             <id>chew</id>
@@ -195,11 +205,14 @@
             <artifactId>lavaplayer</artifactId>
             <version>${lavaplayer.version}</version>
         </dependency>
-        <!-- https://mvnrepository.com/artifact/dev.lavalink.youtube/common -->
+        <!-- Using youtube-source with PR #195 fix (merged Jan 26, 2026) -->
+        <!-- Using snapshot version since fix is merged but not yet released -->
+        <!-- PR: https://github.com/lavalink-devs/youtube-source/pull/195 -->
+        <!-- Merge commit: 453cbc1afed2ec15561a79ad7c30535642fe37c0 -->
         <dependency>
             <groupId>dev.lavalink.youtube</groupId>
             <artifactId>common</artifactId>
-            <version>${youtube-source.version}</version>
+            <version>453cbc1afed2ec15561a79ad7c30535642fe37c0-SNAPSHOT</version>
         </dependency>
         <!-- Dropping JLyrics since it is not being maintained / not working anymore -->
         <!-- <dependency>
